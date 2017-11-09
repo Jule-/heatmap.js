@@ -81,7 +81,7 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
 
 
   function Canvas2dRenderer(config) {
-    var container = config.container;
+    var container = this.container = config.container;
     var shadowCanvas = this.shadowCanvas = document.createElement('canvas');
     var canvas = this.canvas = config.canvas || document.createElement('canvas');
     var renderBoundaries = this._renderBoundaries = [10000, 10000, 0, 0];
@@ -92,6 +92,13 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
 
     this._width = canvas.width = shadowCanvas.width = config.width || +(computed.width.replace(/px/,''));
     this._height = canvas.height = shadowCanvas.height = config.height || +(computed.height.replace(/px/,''));
+
+    this._scaleInParent = config.scaleInParent || false;
+
+    if (this._scaleInParent) {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
 
     this.shadowCtx = shadowCanvas.getContext('2d');
     this.ctx = canvas.getContext('2d');
@@ -139,10 +146,15 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
       this._height = height;
       this.canvas.width = this.shadowCanvas.width = width;
       this.canvas.height = this.shadowCanvas.height = height;
+
+      if (this._scaleInParent) {
+        this.canvas.width = this.container.clientWidth;
+        this.canvas.height = this.container.clientHeight;
+      }
     },
     _clear: function() {
       this.shadowCtx.clearRect(0, 0, this._width, this._height);
-      this.ctx.clearRect(0, 0, this._width, this._height);
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     },
     _setStyles: function(config) {
       this._blur = (config.blur == 0)?0:(config.blur || config.defaultBlur);
@@ -154,6 +166,10 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
       this._width = this.canvas.width = this.shadowCanvas.width = config.width || this._width;
       this._height = this.canvas.height = this.shadowCanvas.height = config.height || this._height;
 
+      if (this._scaleInParent) {
+        this.canvas.width = this.container.clientWidth;
+        this.canvas.height = this.container.clientHeight;
+      }
 
       this._opacity = (config.opacity || 0) * 255;
       this._maxOpacity = (config.maxOpacity || config.defaultMaxOpacity) * 255;
@@ -278,7 +294,21 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
       }
 
       img.data = imgData;
+
+      if (this._scaleInParent) {
+        this.shadowCtx.putImageData(img, x, y);
+        this.shadowCtx.save();
+        var widthScale = this.shadowCanvas.width / this.canvas.width;
+        var heightScale = this.shadowCanvas.height / this.canvas.height;
+        this.shadowCtx.scale(widthScale, heightScale);
+        img = this.shadowCtx.getImageData(x * widthScale, y * heightScale, width * widthScale, height * heightScale);
+      }
+
       this.ctx.putImageData(img, x, y);
+
+      if (this._scaleInParent) {
+        this.shadowCtx.restore();
+      }
 
       this._renderBoundaries = [1000, 1000, 0, 0];
 
